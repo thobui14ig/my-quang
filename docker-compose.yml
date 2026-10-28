@@ -8,11 +8,6 @@ services:
       POSTGRES_PASSWORD: abcd
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U my_quang -d my_quang"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
 
   backend:
     build:
@@ -31,11 +26,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
 
   frontend:
     build:
