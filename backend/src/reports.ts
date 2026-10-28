@@ -1,4 +1,6 @@
-import { BadRequestException, Controller, Get, Inject, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException, Controller, Get, Inject, NotFoundException, Query, UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from './auth';
 import { Database } from './database';
 import { isDateOnly } from './date';
@@ -61,6 +63,7 @@ export class ReportsController {
       [date, month],
     );
     const result = rows[0];
+    if (!result) throw new NotFoundException('Chưa có cấu hình quán. Hãy chạy migration cơ sở dữ liệu.');
     const dayNet = Number(result.day_income) - Number(result.day_expense);
     const monthNet = Number(result.month_income) - Number(result.month_expense);
     const lifetimeNet = Number(result.lifetime_income) - Number(result.lifetime_expense);

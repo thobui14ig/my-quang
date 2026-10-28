@@ -117,6 +117,25 @@ button { cursor: pointer; }
 .share-dot.partner { background: #c8a05a; }
 .capital-note { align-items: center; background: #f8f9f6; border-radius: 6px; color: #88948b; display: flex; font-size: 9px; gap: 6px; margin-top: 7px; padding: 10px; }
 .capital-note svg { color: #82998a; }
+.cash-tracking { margin-top: 16px; }
+.cash-heading { align-items: center; }
+.cash-balance-value { color: #2e5742; font-family: Manrope, sans-serif; font-size: clamp(26px, 3vw, 36px); font-weight: 800; letter-spacing: -1px; margin-top: 17px; }
+.cash-explanation { line-height: 1.5; margin-top: 5px; }
+.cash-warning { background: #fff3ef; border: 1px solid #f1d8d1; border-radius: 6px; color: #a55343; font-size: 10px; margin-top: 12px; padding: 10px; }
+.cash-summary { border-bottom: 1px solid #edf0ea; border-top: 1px solid #edf0ea; display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 19px; padding: 15px 0; }
+.cash-summary span, .cash-summary b { display: block; }
+.cash-summary span { color: #89958d; font-size: 9px; }
+.cash-summary b { color: #46594d; font-size: 11px; margin-top: 6px; }
+.cash-forms { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin-top: 18px; }
+.cash-form { align-content: start; background: #fafbf9; border: 1px solid #edf0ea; border-radius: 8px; padding: 14px; }
+.cash-form h3, .cash-history h3 { color: #405247; font-size: 11px; margin: 0; }
+.cash-form > .muted { font-size: 9px; line-height: 1.5; min-height: 27px; }
+.cash-form select { background: #fff; border: 1px solid #e7ebe5; border-radius: 6px; color: #37473e; font: inherit; font-size: 11px; height: 37px; outline: none; padding: 0 10px; width: 100%; }
+.cash-form select:focus { border-color: #9eb9a3; box-shadow: 0 0 0 2px #eaf2eb; }
+.cash-form .button { justify-self: end; }
+.cash-history { margin-top: 20px; }
+.cash-history h3 { margin-bottom: 9px; }
+.cash-history table { min-width: 580px; }
 .page-alert { margin-bottom: 18px; }
 .alert { border-radius: 7px; font-size: 12px; padding: 10px 12px; }
 .alert.error { background: #fff0ee; color: #a94737; }
@@ -284,6 +303,10 @@ td b { color: #415248; font-size: 10px; font-weight: 600; }
   .stat-value { font-size: clamp(17px, 5vw, 22px); margin-top: 12px; }
   .stat-footer { font-size: 8px; line-height: 1.4; }
   .overview-lower { gap: 10px; margin-top: 13px; }
+  .cash-tracking { margin-top: 12px; }
+  .cash-summary { gap: 13px 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cash-forms { grid-template-columns: 1fr; }
+  .cash-form > .muted { min-height: 0; }
   .panel { padding: 16px; }
   .share-column-head, .share-row { gap: 5px; grid-template-columns: minmax(0, 1fr) 70px 70px; }
   .share-row { font-size: 9px; }

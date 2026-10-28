@@ -4,7 +4,10 @@ import {
   Check, ChevronDown, CircleDollarSign, Coffee, LoaderCircle, LogOut, Plus, ReceiptText,
   Soup, Trash2, TrendingUp, Wallet, X, Users, UserRoundPlus, Pencil,
 } from 'lucide-react';
-import { api, Business, DashboardData, Employee, EmployeePayment, ReportRow, Sale, setToken, Transaction, User } from './api';
+import {
+  api, Business, CashBalance, CashMovement, DashboardData, Employee, EmployeePayment,
+  ReportRow, Sale, setToken, Transaction, User,
+} from './api';
 
 type Page = 'overview' | 'ledger' | 'employees' | 'reports';
 type FormType = 'income' | 'expense';
@@ -72,6 +75,10 @@ function App() {
   const [to, setTo] = useState(today);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [business, setBusiness] = useState<Business | null>(null);
+  const [cashBalance, setCashBalance] = useState<CashBalance | null>(null);
+  const [cashMovements, setCashMovements] = useState<CashMovement[]>([]);
+  const [cashOpeningBalanceInput, setCashOpeningBalanceInput] = useState('');
+  const [cashOpeningDateInput, setCashOpeningDateInput] = useState(today);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -91,12 +98,18 @@ function App() {
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
 
   const loadOverview = useCallback(async () => {
-    const [stats, shop] = await Promise.all([
+    const [stats, shop, cash, movements] = await Promise.all([
       api<DashboardData>(`/dashboard?date=${date}&month=${selectedMonth}`),
       api<Business>('/business'),
+      api<CashBalance>('/business/cash-balance'),
+      api<CashMovement[]>('/business/cash-movements'),
     ]);
     setDashboard(stats);
     setBusiness(shop);
+    setCashBalance(cash);
+    setCashMovements(movements);
+    setCashOpeningBalanceInput(String(cash.openingBalance));
+    setCashOpeningDateInput(cash.openingDate);
   }, [date, selectedMonth]);
 
   const loadLedger = useCallback(async () => {
@@ -222,6 +235,57 @@ function App() {
       await Promise.all([loadLedger(), loadOverview()]);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Không lưu được khoản thu chi.');
+    }
+  }
+
+  async function saveCashOpeningBalance(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      await api('/business/cash-balance', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          openingBalance: Number(cashOpeningBalanceInput),
+          openingDate: cashOpeningDateInput,
+        }),
+      });
+      setToast('Đã cập nhật số dư đầu kỳ.');
+      await loadOverview();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Không cập nhật được số dư đầu kỳ.');
+    }
+  }
+
+  async function saveCashMovement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    try {
+      await api('/business/cash-movements', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: String(form.get('type')),
+          amount: Number(form.get('amount')),
+          date: String(form.get('date')),
+          note: String(form.get('note') ?? '').trim() || undefined,
+        }),
+      });
+      formElement.reset();
+      setToast('Đã ghi nhận giao dịch vốn.');
+      await loadOverview();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Không lưu được giao dịch vốn.');
+    }
+  }
+
+  async function removeCashMovement(movement: CashMovement) {
+    const label = movement.type === 'contribution' ? 'khoản góp vốn' : 'khoản rút quỹ';
+    if (!window.confirm(`Xóa ${label} ${money(movement.amount)} ngày ${displayDate(movement.date)}?`)) return;
+    try {
+      await api(`/business/cash-movements/${movement.id}`, { method: 'DELETE' });
+      setToast('Đã xóa giao dịch vốn khỏi số dư quỹ.');
+      await loadOverview();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Không xóa được giao dịch vốn.');
     }
   }
 
@@ -425,6 +489,69 @@ function App() {
                   <div className="capital-note"><Wallet size={16} /> Vốn góp ban đầu: {money(business?.initial_capital ?? 15000000)} <span>·</span> Không tính vào doanh thu</div>
                 </section>
               </div>
+              <section className="panel cash-tracking">
+                <div className="panel-heading cash-heading">
+                  <div><span className="eyebrow">TIỀN MẶT TRONG QUỸ</span><h2>Số dư quỹ ước tính</h2></div>
+                  <Wallet className="heading-icon" size={20} />
+                </div>
+                <div className={`cash-balance-value ${(cashBalance?.balance ?? 0) < 0 ? 'expense-text' : ''}`}>
+                  {cashBalance ? money(cashBalance.balance) : 'Đang tải...'}
+                </div>
+                <p className="muted cash-explanation">
+                  Tính từ {cashBalance ? displayDate(cashBalance.openingDate) : 'ngày bắt đầu'}:
+                  {' '}số dư đầu kỳ + tổng thu − tổng chi + góp vốn − rút quỹ.
+                </p>
+                {(cashBalance?.balance ?? 0) < 0 && (
+                  <div className="cash-warning">Số dư sổ đang âm. Hãy kiểm tra giao dịch hoặc đối chiếu tiền thực tế trong quỹ.</div>
+                )}
+                <div className="cash-summary">
+                  <div><span>Số dư đầu kỳ</span><b>{money(cashBalance?.openingBalance ?? 0)}</b></div>
+                  <div><span>Tổng thu</span><b className="income-text">+{money(cashBalance?.income ?? 0)}</b></div>
+                  <div><span>Tổng chi</span><b className="expense-text">−{money(cashBalance?.expense ?? 0)}</b></div>
+                  <div><span>Góp vốn / Rút quỹ</span><b>+{money(cashBalance?.contributions ?? 0)} / −{money(cashBalance?.withdrawals ?? 0)}</b></div>
+                </div>
+                <div className="cash-forms">
+                  <form className="entry-form cash-form" onSubmit={saveCashOpeningBalance}>
+                    <h3>Cài đặt số dư đầu kỳ</h3>
+                    <p className="muted">Nhập tiền thực có trước khi bắt đầu ghi sổ từ ngày đã chọn.</p>
+                    <label>Số tiền đầu kỳ (₫)<input type="number" min="0" step="1" value={cashOpeningBalanceInput} onChange={(event) => setCashOpeningBalanceInput(event.target.value)} required /></label>
+                    <label>Ngày bắt đầu theo dõi<input type="date" value={cashOpeningDateInput} onChange={(event) => setCashOpeningDateInput(event.target.value)} required /></label>
+                    <button className="button primary" type="submit">Lưu số dư đầu kỳ</button>
+                  </form>
+                  <form className="entry-form cash-form" onSubmit={saveCashMovement}>
+                    <h3>Góp vốn hoặc rút quỹ</h3>
+                    <p className="muted">Giao dịch này chỉ điều chỉnh tiền quỹ, không tính là thu hoặc chi kinh doanh.</p>
+                    <label>Loại giao dịch<select name="type" defaultValue="contribution"><option value="contribution">Góp vốn vào quỹ</option><option value="withdrawal">Rút tiền khỏi quỹ</option></select></label>
+                    <div className="form-row">
+                      <label>Số tiền (₫)<input name="amount" type="number" min="1" step="1" required /></label>
+                      <label>Ngày<input name="date" type="date" defaultValue={today} required /></label>
+                    </div>
+                    <label>Ghi chú<input name="note" maxLength={1000} placeholder="Không bắt buộc" /></label>
+                    <button className="button primary" type="submit"><Plus size={16} /> Ghi giao dịch vốn</button>
+                  </form>
+                </div>
+                <div className="cash-history">
+                  <h3>Lịch sử góp vốn và rút quỹ</h3>
+                  <div className="table-scroll"><table>
+                    <thead><tr><th>Ngày</th><th>Loại</th><th>Ghi chú</th><th className="align-right">Số tiền</th><th className="align-right">Thao tác</th></tr></thead>
+                    <tbody>{cashMovements.length === 0
+                      ? <tr><td colSpan={5} className="empty-row">Chưa có giao dịch góp vốn hoặc rút quỹ.</td></tr>
+                      : cashMovements.map((movement) => (
+                        <tr key={movement.id}>
+                          <td className="date-cell">{displayDate(movement.date)}</td>
+                          <td>{movement.type === 'contribution' ? 'Góp vốn' : 'Rút quỹ'}</td>
+                          <td>{movement.note || '—'}</td>
+                          <td className={`align-right amount-cell ${movement.type === 'contribution' ? 'income-text' : ''}`}>
+                            {movement.type === 'contribution' ? '+' : '−'}{money(movement.amount)}
+                          </td>
+                          <td className="align-right row-actions">
+                            <button aria-label="Xóa giao dịch vốn" onClick={() => void removeCashMovement(movement)}><Trash2 size={15} /></button>
+                          </td>
+                        </tr>
+                      ))}</tbody>
+                  </table></div>
+                </div>
+              </section>
             </>
           )}
 

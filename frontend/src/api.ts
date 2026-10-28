@@ -46,6 +46,27 @@ export interface Business {
   partner_capital: number | string;
   owner_profit_percent: number | string;
   partner_profit_percent: number | string;
+  cashOpeningBalance: number | string;
+  cashOpeningDate: string;
+}
+
+export interface CashBalance {
+  openingBalance: number;
+  openingDate: string;
+  income: number;
+  expense: number;
+  contributions: number;
+  withdrawals: number;
+  balance: number;
+}
+
+export interface CashMovement {
+  id: number;
+  type: 'contribution' | 'withdrawal';
+  amount: number | string;
+  date: string;
+  note?: string | null;
+  createdAt: string;
 }
 
 export interface ReportRow {
