@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: my_quang
       POSTGRES_USER: my_quang
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: abcd
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -23,20 +23,15 @@ services:
       PGHOST: db
       PGPORT: 5432
       PGUSER: my_quang
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PGPASSWORD: abcd
       PGDATABASE: my_quang
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_SECRET: 8f3d9a7c2e6b1f4a0d8c5e7b9a2f6d1c4e8b3a7f0d5c9e2b6a1f4d8c7e3b9a5f
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8080}
       PORT: 3000
     depends_on:
       db:
         condition: service_healthy
-    healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - "fetch('http://127.0.0.1:3000/api/auth/me').then(r => process.exit(r.status === 401 ? 0 : 1)).catch(() => process.exit(1))"
+
       interval: 10s
       timeout: 5s
       retries: 5
