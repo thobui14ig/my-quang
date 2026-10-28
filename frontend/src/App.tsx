@@ -12,6 +12,8 @@ type FormType = 'income' | 'expense';
 const today = new Date().toLocaleDateString('sv-SE');
 const money = (value: number | string) =>
   `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Number(value) || 0)} ₫`;
+const salaryForMonthlyIncome = (income: number) =>
+  6_000_000 + Math.max(0, Math.floor(income / 10_000_000) - 1) * 1_000_000;
 const displayDate = (value: string) =>
   new Date(`${value.slice(0, 10)}T00:00:00`).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -78,6 +80,8 @@ function App() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [editingEmployeePayment, setEditingEmployeePayment] = useState<EmployeePayment | null>(null);
   const [employeeMonth, setEmployeeMonth] = useState(today.slice(0, 7));
+  const [employeeMonthIncome, setEmployeeMonthIncome] = useState<number | null>(null);
+  const [employeePaymentAmount, setEmployeePaymentAmount] = useState('');
   const [report, setReport] = useState<ReportRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -159,6 +163,27 @@ function App() {
       setEmployeePayments([]);
     }
   }, [page, selectedEmployeeId, loadEmployeePayments]);
+
+  useEffect(() => {
+    if (page !== 'employees') return;
+    let active = true;
+    const from = `${employeeMonth}-01`;
+    const to = new Date(Number(employeeMonth.slice(0, 4)), Number(employeeMonth.slice(5, 7)), 0)
+      .toLocaleDateString('sv-SE');
+    setEmployeeMonthIncome(null);
+    void api<ReportRow[]>(`/reports?from=${from}&to=${to}`).then((rows) => {
+      if (active) setEmployeeMonthIncome(rows.reduce((total, row) => total + row.income, 0));
+    }).catch((reason: unknown) => {
+      if (active) setError(reason instanceof Error ? reason.message : 'Không tính được tổng thu tháng.');
+    });
+    return () => { active = false; };
+  }, [page, employeeMonth]);
+
+  useEffect(() => {
+    if (employeeMonthIncome !== null && !editingEmployeePayment) {
+      setEmployeePaymentAmount(String(salaryForMonthlyIncome(employeeMonthIncome)));
+    }
+  }, [employeeMonthIncome, editingEmployeePayment]);
 
   useEffect(() => {
     if (!toast) return;
@@ -281,6 +306,7 @@ function App() {
         },
       );
       setEditingEmployeePayment(null);
+      setEmployeePaymentAmount(String(salaryForMonthlyIncome(employeeMonthIncome ?? 0)));
       setToast(editingEmployeePayment ? 'Đã cập nhật khoản lương.' : 'Đã ghi nhận khoản lương.');
       await Promise.all([
         loadEmployeePayments(selectedEmployeeId),
@@ -473,7 +499,7 @@ function App() {
           {page === 'employees' && (
             <>
               <div className="page-heading">
-                <div><span className="eyebrow">QUẢN LÝ NHÂN SỰ</span><h1>Nhân viên</h1><p className="muted">Quản lý tên nhân viên và các khoản tiền đã trả theo tháng.</p></div>
+                <div><span className="eyebrow">QUẢN LÝ NHÂN SỰ</span><h1>Nhân viên</h1><p className="muted">Lương theo tổng thu tháng, tăng 1 triệu cho mỗi 10 triệu doanh thu từ mốc 20 triệu.</p></div>
               </div>
               <div className="employee-layout simple-employees">
                 <div className="employee-left-column">
@@ -507,9 +533,18 @@ function App() {
                         <div className="entry-heading"><span className="entry-icon sale-icon"><Wallet size={19} /></span><div><h2>{editingEmployeePayment ? 'Sửa khoản đã trả' : 'Ghi khoản đã trả'}</h2><p>{employees.find((employee) => employee.id === selectedEmployeeId)?.fullName} · khoản trả được ghi vào Chi.</p></div></div>
                         <form className="entry-form payment-form" onSubmit={saveEmployeePayment}>
                           <div className="form-row">
-                            <label>Tháng<input name="month" type="month" defaultValue={editingEmployeePayment?.month.slice(0, 7) ?? employeeMonth} required key={`payment-month-${editingEmployeePayment?.id ?? 'new'}`} /></label>
-                            <label>Số tiền đã trả (₫)<input name="amount" type="number" min="1" step="1" placeholder="Ví dụ: 6000000" defaultValue={editingEmployeePayment ? Number(editingEmployeePayment.amount) : ''} required key={`payment-amount-${editingEmployeePayment?.id ?? 'new'}`} /></label>
+                            <label>Tháng<input name="month" type="month" value={employeeMonth} onChange={(event) => {
+                              setEmployeeMonth(event.target.value);
+                              setEmployeeMonthIncome(null);
+                              if (!editingEmployeePayment) setEmployeePaymentAmount('');
+                            }} required /></label>
+                            <label>Số tiền đã trả (₫)<input name="amount" type="number" min="1" step="1" placeholder="Ví dụ: 6000000" value={employeePaymentAmount} onChange={(event) => setEmployeePaymentAmount(event.target.value)} required /></label>
                           </div>
+                          <p className="payroll-note">
+                            {employeeMonthIncome === null
+                              ? 'Đang tính tổng thu tháng...'
+                              : `Tổng thu tháng ${money(employeeMonthIncome)} · Mức lương đề xuất ${money(salaryForMonthlyIncome(employeeMonthIncome))}.`}
+                          </p>
                           <div className="form-actions">
                             {editingEmployeePayment && <button className="button subtle" type="button" onClick={() => setEditingEmployeePayment(null)}>Hủy sửa</button>}
                             <button className="button primary" type="submit"><Plus size={17} /> {editingEmployeePayment ? 'Lưu khoản trả' : 'Ghi khoản trả'}</button>
@@ -522,7 +557,11 @@ function App() {
                           <tbody>{employeePayments.length === 0 ? <tr><td colSpan={3} className="empty-row">Chưa ghi nhận khoản trả nào.</td></tr> : employeePayments.map((payment) => (
                             <tr key={payment.id}><td className="date-cell">{new Date(`${payment.month.slice(0, 10)}T00:00:00`).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })}</td>
                               <td className="align-right amount-cell">{money(payment.amount)}</td>
-                              <td className="align-right row-actions"><button aria-label="Sửa khoản trả" onClick={() => setEditingEmployeePayment(payment)}><Pencil size={15} /></button><button aria-label="Xóa khoản trả" onClick={() => void removeEmployeePayment(payment)}><Trash2 size={15} /></button></td>
+                              <td className="align-right row-actions"><button aria-label="Sửa khoản trả" onClick={() => {
+                                setEmployeeMonth(payment.month.slice(0, 7));
+                                setEmployeePaymentAmount(String(payment.amount));
+                                setEditingEmployeePayment(payment);
+                              }}><Pencil size={15} /></button><button aria-label="Xóa khoản trả" onClick={() => void removeEmployeePayment(payment)}><Trash2 size={15} /></button></td>
                             </tr>
                           ))}</tbody>
                         </table></div>
