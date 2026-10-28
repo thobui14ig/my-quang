@@ -23,9 +23,6 @@ services:
       JWT_SECRET: 8f3d9a7c2e6b1f4a0d8c5e7b9a2f6d1c4e8b3a7f0d5c9e2b6a1f4d8c7e3b9a5f
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8080}
       PORT: 3000
-    depends_on:
-      db:
-        condition: service_healthy
 
   frontend:
     build:
@@ -36,9 +33,6 @@ services:
     restart: unless-stopped
     ports:
       - "${APP_PORT:-8080}:80"
-    depends_on:
-      backend:
-        condition: service_healthy
 
 volumes:
   postgres_data:
